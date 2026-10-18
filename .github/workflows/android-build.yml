@@ -44,22 +44,26 @@ jobs:
 
           path = Path("app/build.gradle")
           source = path.read_text(encoding="utf-8")
+          schema_setting = 'schemaDirectory "$projectDir/schemas"'
 
-          if 'schemaDirectory "$projectDir/schemas"' not in source:
-              marker = "android {\n"
+          if schema_setting not in source:
+              marker = "\n}\n\nandroidComponents {"
               if marker not in source:
-                  raise SystemExit("Could not find android block in app/build.gradle")
+                  raise SystemExit(
+                      "Could not find the end of the android block in app/build.gradle"
+                  )
 
-              source = source.replace(
-                  marker,
-                  marker + '    room {\n'
-                           '        schemaDirectory "$projectDir/schemas"\n'
-                           '    }\n',
-                  1
+              room_config = (
+                  '\n    room {\n'
+                  '        schemaDirectory "$projectDir/schemas"\n'
+                  '        generateKotlin false\n'
+                  '    }\n'
+                  '}\n\nandroidComponents {'
               )
+              source = source.replace(marker, room_config, 1)
               path.write_text(source, encoding="utf-8")
 
-          print("Room schema directory configured.")
+          print("Room schema configuration checked.")
           PY
 
       - name: Set up Android SDK
@@ -80,7 +84,7 @@ jobs:
       - name: Build Proton VPN APK
         working-directory: upstream
         env:
-          OVERRIDE_VERSION_NAME: '1.0.0-locationpicker'
+          OVERRIDE_VERSION_NAME: '1.0.0.0'
         run: |
           ./gradlew assembleProductionVanillaOpenSourceDebug \
             --no-daemon \
