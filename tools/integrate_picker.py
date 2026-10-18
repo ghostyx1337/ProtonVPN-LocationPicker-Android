@@ -5,8 +5,14 @@ from pathlib import Path
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument("project", nargs="?", default=".", help="path to ProtonVPN Android source checkout")
+parser.add_argument(
+    "project",
+    nargs="?",
+    default=".",
+    help="path to ProtonVPN Android source checkout",
+)
 args = parser.parse_args()
+
 ROOT = Path(args.project).resolve()
 NAV = ROOT / "app/src/main/java/com/protonvpn/android/redesign/main_screen/ui/nav/MainNav.kt"
 BAR = ROOT / "app/src/main/java/com/protonvpn/android/redesign/main_screen/ui/BottomBarView.kt"
@@ -14,17 +20,23 @@ STRINGS = ROOT / "app/src/main/res/values/strings.xml"
 
 for path in (NAV, BAR, STRINGS):
     if not path.is_file():
-        raise SystemExit(f"Not a ProtonVPN Android source checkout: missing {path}")
+        raise SystemExit(
+            f"Not a ProtonVPN Android source checkout: missing {path}"
+        )
+
 
 def replace_once(path: Path, old: str, new: str):
-    text = path.read_text(encoding="utf-8")
-    count = text.count(old)
+    source = path.read_text(encoding="utf-8")
+    count = source.count(old)
+
     if count != 1:
         raise SystemExit(
             f"Patch stopped: expected exactly one match in "
             f"{path.relative_to(ROOT)}; found {count}: {old[:90]!r}"
         )
-    path.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+    path.write_text(source.replace(old, new, 1), encoding="utf-8")
+
 
 replace_once(
     NAV,
@@ -40,7 +52,7 @@ replace_once(
     "import androidx.compose.material3.Text\n"
     "import androidx.compose.runtime.mutableStateOf\n"
     "import androidx.compose.runtime.setValue\n"
-    "import androidx.compose.ui.unit.dp\n"
+    "import androidx.compose.ui.unit.dp\n",
 )
 
 replace_once(
@@ -51,7 +63,7 @@ replace_once(
     "import com.protonvpn.android.redesign.CountryId\n"
     "import com.protonvpn.android.redesign.vpn.ConnectIntent\n"
     "import com.protonvpn.android.redesign.vpn.ServerFeature\n"
-    "import com.protonvpn.android.vpn.ConnectTrigger\n"
+    "import com.protonvpn.android.vpn.ConnectTrigger\n",
 )
 
 replace_once(
@@ -59,14 +71,14 @@ replace_once(
     "enum class MainTarget {\n"
     "    Home, Countries, Gateways, Profiles, Settings;",
     "enum class MainTarget {\n"
-    "    Home, Countries, Gateways, Profiles, Settings, LocationPicker;"
+    "    Home, Countries, Gateways, Profiles, Settings, LocationPicker;",
 )
 
 replace_once(
     NAV,
     "            SettingsScreen.route -> Settings\n",
     "            SettingsScreen.route -> Settings\n"
-    "            LocationPickerScreen.route -> LocationPicker\n"
+    "            LocationPickerScreen.route -> LocationPicker\n",
 )
 
 replace_once(
@@ -76,14 +88,15 @@ replace_once(
     "            MainTarget.Settings ->\n"
     "                navigateInternal(SettingsScreen, navOptions)\n\n"
     "            MainTarget.LocationPicker ->\n"
-    "                navigateInternal(LocationPickerScreen, navOptions)\n"
+    "                navigateInternal(LocationPickerScreen, navOptions)\n",
 )
 
 replace_once(
     NAV,
     "                    MainTarget.Settings -> settings(\n",
-    "                    MainTarget.LocationPicker -> LocationPickerScreen.locationPicker()\n\n"
-    "                    MainTarget.Settings -> settings(\n"
+    "                    MainTarget.LocationPicker -> "
+    "with(LocationPickerScreen) { locationPicker() }\n\n"
+    "                    MainTarget.Settings -> settings(\n",
 )
 
 append = '''
@@ -108,7 +121,7 @@ object LocationPickerScreen : ScreenNoArg<MainNav>("locationPicker") {
             Spacer(Modifier.height(8.dp))
             Text(
                 "Connect to the fastest available Proton VPN server in a chosen country. " +
-                "Availability depends on your plan and current server inventory."
+                    "Availability depends on your plan and current server inventory."
             )
             Spacer(Modifier.height(20.dp))
 
@@ -131,12 +144,18 @@ object LocationPickerScreen : ScreenNoArg<MainNav>("locationPicker") {
                     if (code.length != 2 || !code.all { it in 'A'..'Z' }) {
                         message = "Enter a valid 2-letter country code."
                     } else {
-                        val features = EnumSet.noneOf(ServerFeature::class.java)
+                        val features =
+                            EnumSet.noneOf(ServerFeature::class.java)
+
                         activityViewModel.connect(
                             activity.vpnActivityDelegate,
-                            ConnectIntent.FastestInCountry(CountryId(code), features),
+                            ConnectIntent.FastestInCountry(
+                                CountryId(code),
+                                features
+                            ),
                             ConnectTrigger.CountriesCountry("location picker")
                         )
+
                         message =
                             "Connection requested for $code. Proton will select an available server for your account."
                     }
@@ -157,33 +176,38 @@ object LocationPickerScreen : ScreenNoArg<MainNav>("locationPicker") {
 '''
 
 if "object LocationPickerScreen :" in NAV.read_text(encoding="utf-8"):
-    raise SystemExit("Patch stopped: LocationPickerScreen already exists.")
+    raise SystemExit(
+        "Patch stopped: LocationPickerScreen already exists."
+    )
 
-with NAV.open("a", encoding="utf-8") as f:
-    f.write(append)
+with NAV.open("a", encoding="utf-8") as file:
+    file.write(append)
 
 replace_once(
     BAR,
     "    MainTarget.Settings -> R.string.botton_nav_settings\n",
     "    MainTarget.Settings -> R.string.botton_nav_settings\n"
-    "    MainTarget.LocationPicker -> R.string.bottom_nav_location_picker\n"
+    "    MainTarget.LocationPicker -> R.string.bottom_nav_location_picker\n",
 )
 
 replace_once(
     BAR,
     "    MainTarget.Settings ->\n"
-    "        if (selected) CoreR.drawable.ic_proton_cog_wheel_filled else CoreR.drawable.ic_proton_cog_wheel\n",
+    "        if (selected) CoreR.drawable.ic_proton_cog_wheel_filled "
+    "else CoreR.drawable.ic_proton_cog_wheel\n",
     "    MainTarget.Settings ->\n"
-    "        if (selected) CoreR.drawable.ic_proton_cog_wheel_filled else CoreR.drawable.ic_proton_cog_wheel\n"
+    "        if (selected) CoreR.drawable.ic_proton_cog_wheel_filled "
+    "else CoreR.drawable.ic_proton_cog_wheel\n"
     "    MainTarget.LocationPicker ->\n"
-    "        if (selected) CoreR.drawable.ic_proton_earth_filled else CoreR.drawable.ic_proton_earth\n"
+    "        if (selected) CoreR.drawable.ic_proton_earth_filled "
+    "else CoreR.drawable.ic_proton_earth\n",
 )
 
 replace_once(
     STRINGS,
     '    <string name="bottom_nav_profiles">Profiles</string>\n',
     '    <string name="bottom_nav_profiles">Profiles</string>\n'
-    '    <string name="bottom_nav_location_picker">Picker</string>\n'
+    '    <string name="bottom_nav_location_picker">Picker</string>\n',
 )
 
 print("Location Picker patch applied.")
